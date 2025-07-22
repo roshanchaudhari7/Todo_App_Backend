@@ -103,7 +103,7 @@ app.post("/signup", async (req, res) => {
 })
 
 app.get("/login", (req, res) => {
-    return res.render("login");
+    return res.render("login"); // Renders login.ejs
 })
 
 app.post("/login", (req, res) => {
