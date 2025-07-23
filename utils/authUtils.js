@@ -1,3 +1,4 @@
+// importing the validator library
 const validator = require("validator");
 
 const cleanupAndValidate = ({ name, email, username, password }) => {
@@ -30,6 +31,7 @@ const cleanupAndValidate = ({ name, email, username, password }) => {
             reject("password length should be 3-30");
         }
 
+        // use validator to check if the email is in a valid format
         if (!validator.isEmail(email)) {
             reject("Email format is wrong");
         }
@@ -37,4 +39,5 @@ const cleanupAndValidate = ({ name, email, username, password }) => {
     })
 }
 
+// Export the function
 module.exports = { cleanupAndValidate };
