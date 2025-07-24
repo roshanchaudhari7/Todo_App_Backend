@@ -6,6 +6,11 @@ const clc = require("cli-color");
 // mongoose model representing a user in the database
 const userModel = require("./models/userModel");
 
+// for password hashing
+const bcrypt = require("bcrypt");
+
+const validator = require("validator");
+
 // custome utility function to clean up and validae user input
 const { cleanupAndValidate } = require("./utils/authUtils");
 
@@ -76,12 +81,19 @@ app.post("/signup", async (req, res) => {
         });
     }
 
+    // Hashing the password
+    const hashedPassword = await bcrypt.hash(
+        password,
+        parseInt(process.env.SALT)
+    );
+    console.log(password, hashedPassword);
+
     // create a new user
     const userObj = new userModel({
         name: name,
         email: email,
         username: username,
-        password: password
+        password: hashedPassword
     });
 
     // Save the user to the database
@@ -106,9 +118,46 @@ app.get("/login", (req, res) => {
     return res.render("login"); // Renders login.ejs
 })
 
-app.post("/login", (req, res) => {
-    console.log(req.body);
-    return res.send("Login");
+app.post("/login", async (req, res) => {
+    const { loginId, password } = req.body;
+
+    // Identify loginId by email or username
+    try {
+        let userDb;
+        if (validator.isEmail(loginId)) {
+            userDb = await userModel.findOne({ email: loginId });
+            if (!userDb) {
+                return res.send({
+                    status: 400,
+                    message: "Email not found"
+                });
+            }
+        } else {
+            userDb = await userModel.findOne({ username: loginId });
+            if (!userDb) {
+                return res.send({
+                    status: 400,
+                    message: "Username not found"
+                });
+            }
+        }
+
+        // Compare password with hashed password in database
+        const isMatched = await bcrypt.compare(password, userDb.password);
+        if (!isMatched) {
+            return res.send({
+                status: 400,
+                message: "Password incorrect"
+            });
+        }
+        return res.send("Login successfull");
+    } catch (error) {
+        return res.send({
+            status: 500,
+            message: "Database error",
+            error: error
+        });
+    }
 })
 
 app.listen(process.env.PORT, () => {
