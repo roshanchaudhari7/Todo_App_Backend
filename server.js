@@ -1,30 +1,35 @@
 const express = require("express"); // import express
 const mongoose = require("mongoose"); // import mongoose
-// imports the cli-color module to enable colored console output (for better readability / logging) 
-const clc = require("cli-color");
-
-// mongoose model representing a user in the database
-const userModel = require("./models/userModel");
-
-// for password hashing
-const bcrypt = require("bcrypt");
-
+const clc = require("cli-color"); // imports the cli-color module to enable colored console output (for better readability / logging) 
+const userModel = require("./models/userModel"); // mongoose model representing a user in the database
+const bcrypt = require("bcrypt"); // for password hashing
 const validator = require("validator");
-
-// custome utility function to clean up and validae user input
-const { cleanupAndValidate } = require("./utils/authUtils");
-
-// Loads environment variables from a .env file into process.env 
-require("dotenv").config();
+const session = require("express-session");
+const mongoDbSession = require("connect-mongodb-session")(session);
+const { cleanupAndValidate } = require("./utils/authUtils"); // custome utility function to clean up and validae user input
+const isAuth = require("./middleware/isAuth");
+require("dotenv").config(); // Loads environment variables from a .env file into process.env 
 
 const app = express();
+const store = new mongoDbSession({
+    uri: process.env.MONGO_URI,
+    collection: "sessions"
+});
 
 // Middleware to parse JSON and URL-encoded payloads
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.set("view engine", "ejs"); // view engine configuration
 
-// view engine configuration
-app.set("view engine", "ejs");
+// Session configuration
+app.use(
+    session({
+        secret: process.env.SECRET_KEY,
+        resave: false,
+        saveUninitialized: false,
+        store: store
+    })
+)
 
 // Connect to MongoDB using connection string
 mongoose.connect(process.env.MONGO_URI)
@@ -150,7 +155,17 @@ app.post("/login", async (req, res) => {
                 message: "Password incorrect"
             });
         }
-        return res.send("Login successfull");
+
+        //session base auth
+        console.log(req.session);
+        req.session.isAuth = true;
+        req.session.user = {
+            email: userDb.email,
+            username: userDb.username,
+            loginId: userDb._id
+        }
+
+        return res.redirect("/todo");
     } catch (error) {
         return res.send({
             status: 500,
@@ -160,6 +175,12 @@ app.post("/login", async (req, res) => {
     }
 })
 
+app.get("/todo", isAuth, (req, res) => {
+    return res.render("todo");
+})
+
+
 app.listen(process.env.PORT, () => {
     console.log(clc.yellowBright.underline(`http://localhost:${process.env.PORT}`));
 })
+
