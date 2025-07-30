@@ -8,6 +8,7 @@ const session = require("express-session");
 const mongoDbSession = require("connect-mongodb-session")(session);
 const { cleanupAndValidate } = require("./utils/authUtils"); // custome utility function to clean up and validae user input
 const isAuth = require("./middleware/isAuth");
+const todoModel = require("./models/todoModel");
 require("dotenv").config(); // Loads environment variables from a .env file into process.env 
 
 const app = express();
@@ -179,6 +180,49 @@ app.get("/todo", isAuth, (req, res) => {
     return res.render("todo");
 })
 
+// todo apis
+app.post("/create-item", isAuth, async (req, res) => {
+    const todoText = req.body.todo;
+    const username = req.session.user.username;
+
+    if (!todoText) {
+        return res.send({
+            status: 400,
+            message: "Missing todo text"
+        });
+    } else if (typeof todoText !== "string") {
+        return res.send({
+            status: 400,
+            message: "Todo text is not a string"
+        });
+    } else if (todoText.length < 3 || todoText.length > 100) {
+        return res.send({
+            status: 400,
+            message: "Todo length should be 3-100"
+        });
+    }
+
+    // create a todo in DB
+    const todoObj = new todoModel({
+        todo: todoText,
+        username: username
+    });
+
+    try {
+        const todoDb = await todoObj.save();
+        return res.send({
+            status: 201,
+            message: "Todo created successfully",
+            data: todoDb
+        });
+    } catch (error) {
+        return res.send({
+            status: 500,
+            message: "Database error",
+            error: error
+        });
+    }
+})
 
 app.listen(process.env.PORT, () => {
     console.log(clc.yellowBright.underline(`http://localhost:${process.env.PORT}`));
